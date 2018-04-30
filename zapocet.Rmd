@@ -1,0 +1,541 @@
+---
+title: "Zápočet"
+author: "Kristína Blašková"
+date: "December 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Q01
+
+Zjistete, zdali data neobsahují chybějící hodnoty (NA), pokud ano tak příslušná pozorování z dat odstrante. Ověřte rozmery datového souboru a shrňte základní popisné charakteristiky všech promenných.
+
+**
+1. V dátovom súbore nie sú žiadne na hodnoty.
+**
+
+```{r}
+library(MASS)
+any(is.na(Boston))
+```
+
+**
+2. Rozmery sú 506 riadkov a 14 stĺpcov.
+**
+
+```{r}
+dim(Boston)
+```
+
+**
+3. Základné popisné charakteristiky sú vo výstupe nižšie:
+**
+
+```{r}
+summary(Boston)
+str(Boston)
+```
+
+\pagebreak
+
+## Q2
+
+Vykreslete histogram a odhad hustoty pro odezvu medv.
+
+```{r}
+medlab = "Median value of owner-occupied homes in $1000s"
+ hist(Boston$medv, breaks = 15, xlab = medlab)
+```
+
+**
+Pre odhad hustoty použijeme balíček fitdistrplus, ktorý obsahuje funkciu descdist, ktorá nám
+na základe špicatosti a šikmosti nájde najvhodnejšiu distribúciu pre premennú medv.
+**
+
+```{r}
+library(fitdistrplus)
+descdist(Boston$medv, discrete = FALSE)
+```
+
+**
+Jedno z vhodných rozdelení je aj gamma, ktoré použijeme:
+**
+
+```{r}
+medv <- Boston$medv
+dist <- fitdistrplus::fitdist(medv, "gamma")
+plot(dist)
+```
+
+**
+Z grafu hustoty vidíme, že pri hodnote medv 50 sa dáta najviac nezhodujú s preloženou gamma distribúciou. To nám potvrdzuje aj Q-Q plot. 
+**
+\pagebreak
+
+## Q03
+Pro promenné crim, nox, rm, lstat, ptratio, dis vykreslete scatterplot - závislost dané promenné na odezvě a proložte body jak lineárním odhadem tak vyhlazenou křivkou (lines(lowess(X,Y))).
+
+```{r}
+library(car)
+
+{plot(Boston$medv, Boston$crim, xlab = medlab , 
+      ylab = "Per capita crime rate by town [crim]")
+lines(lowess(Boston$medv,Boston$crim), col="orange")
+abline(lm(Boston$crim~Boston$medv), col="red")}
+
+{plot(Boston$medv, Boston$nox, xlab = medlab , 
+      ylab = "Nitrogen oxides concentration (parts per 10 million) [nox]")
+lines(lowess(Boston$medv,Boston$nox), col="blue")
+abline(lm(Boston$nox~Boston$medv), col="red")}
+
+{plot(Boston$medv, Boston$rm, xlab = medlab , 
+      ylab = "Average number of rooms per dwelling [rm]")
+lines(lowess(Boston$medv,Boston$rm), col="yellow")
+abline(lm(Boston$rm~Boston$medv), col="red")}
+
+{plot(Boston$medv, Boston$lstat, xlab = medlab , 
+      ylab = "Lower status of the population (percent) [lstat]")
+lines(lowess(Boston$medv,Boston$lstat), col="pink")
+abline(lm(Boston$lstat~Boston$medv), col="red")}
+
+{plot(Boston$medv, Boston$ptratio, xlab = medlab , 
+      ylab = "Pupil-teacher ratio by town [ptratio]")
+lines(lowess(Boston$medv,Boston$ptratio), col="darkorange")
+abline(lm(Boston$ptratio~Boston$medv), col="red")}
+
+{plot(Boston$medv, Boston$dis, xlab = medlab , 
+      ylab = "Weighted mean of distances to five Boston employment centres [dis]")
+  abline(lm(Boston$dis~Boston$medv), col="red")
+lines(lowess(Boston$medv,Boston$dis), col="green")}
+
+```
+
+\pagebreak
+
+##Q4
+
+Pro proměnné chas a rad a jejich vztah k odezvě vykreslete krabicové diagramy (boxploty). Proměnnou rad transformujte tak, aby obsahovala pouze dvě úrovně (levely) a vykreslete opět krabicový diagram.
+
+```{r}
+boxplot(medv~chas,data=Boston, ylab = medlab, 
+        xlab = "Charles River dummy variable (1 if tract bounds river;0 otherwise) [chas]")
+boxplot(medv~rad,data=Boston, ylab = medlab, 
+        xlab = "Index of accessibility to radial highways [rad]")
+```
+
+**
+Z obrázku vidíme, že máme v súčastnosti 9 levelov. Vzhľadom na význam premennej, dáva zmysel zlúčiť levely 1-8 a ponechať level 24. To spravíme tak, že pomocou ifelse vytvoríme nový stĺpec a priradíme mu hodnotu 24, ak v stĺpci rad v rovnakom riadku tiež vidíme hodnotu 24, a hodnotu 8 inak. ifelse pôsobí na vektory ako celok a preto nepotrebujeme žiaden for cyklus.
+**
+
+```{r}
+bostoncopy <- Boston
+bostoncopy$radnew <- ifelse(bostoncopy$rad ==24 , 24, 8)
+```
+
+**
+Následne môžeme pristúpiť k novému boxplotu:
+**
+
+```{r}
+factor(bostoncopy$radnew)
+boxplot(medv~radnew,data=bostoncopy, ylab = medlab, 
+        xlab = "Index of accessibility to radial highways [rad]")
+```
+
+\pagebreak
+
+## Q05
+
+Navrhnete další zobrazení datového souboru. Provedˇte ho a popište jeho účel.
+
+**
+Našim cieľom (podľa zadania) je preskúmať ceny nehnuteľností. Využiť môžeme aj bubble charts, vďaka ktorým si môžme všimnúť závislosti medzi 3 premennými a zároveň nám to ukáže, či nie je vhodné nejaké premenné rozfaktorovať.
+**
+
+**
+Ako prvé si vykreslíme závislosť ceny domov od kriminality a pozrieme sa, aké dane platia ľudia za tieto nehnuteľnosti:
+**
+
+```{r}
+library(ggplot2)
+
+ggplot(Boston, aes(x = crim, y = medv, fill = tax)) +
+       geom_point(shape = 21) +
+  labs(x = "Criminality", y = medlab) +
+        scale_x_continuous(breaks = seq(1, 31, 5))
+```
+
+**
+Čím je vyššia kriminalita, tým menej nehnuteľnosť stojí, ale zároveň sa platia vyššie dane. To môže byť spôsobené tým, že na miestach s vyššou kriminalitou sú zásahy zdravotníkov, policajtov, alebo hasičov oveľa potrebnejšie. Taktiež sa pravdepodobne oveľa častejšie zničí verejný majetok a tieto dane môžu slúžiť ako financovanie týchto dôsledkov.
+**
+
+**
+Ďalej sa pozrieme, ako súvisí cena nehnuteľností, kriminalita a vzdialenosť od obchvatov.
+**
+
+```{r}
+ggplot(Boston, aes(x = crim, y = medv, fill = rad)) +
+       geom_point(shape = 21) +
+  labs(x = "Criminality", y = medlab) +
+        scale_x_continuous(breaks = seq(1, 31, 5))
+```
+
+**
+Čím vyššia je kriminalita, tým nižšie sú ceny nehnuteľností a tým vačšia je nižšia dostupnosť na diaľnicu. 
+**
+**
+Teraz skúsime vymeniť kriminalitu za počet ľudí s nižším sociálnym statusom:
+**
+
+```{r}
+ggplot(Boston, aes(x = lstat, y = medv, fill = rad)) +
+       geom_point(shape = 21) +
+  labs(x = "Lower status of the population (percent)", y = medlab) +
+        scale_x_continuous(breaks = seq(1, 31, 5))
+```
+
+**
+Vidíme, že väčšina ľudí s nižším sociálnym statusom to má ďaleko na diaľnicu, to ale platilo aj pre miesta s vyššou kriminalitou. Z toho vyplýva, že množina ľudí s nižším statusom sa vysoko prekrýva s množinou kriminálnikov.
+**
+
+\pagebreak
+
+## Q06
+
+Sestavte jednoduchý regresní model a na jeho základech zjistete zdali kriminalita v okolí ovlivnuje cenu nemovitostí určených k bydlení. Pokud ano, o kolik je cena nemovitostí nižší v závislosti na míře kriminality? Oveřte předpoklady pro použití lineárního modelu (validujte např. symetrii a normalitu
+residui) a diskutujte výstup.
+
+**
+Na nasledujúcom grafe vidíme dáta vs lineárny model s a bez interceptu.
+**
+
+```{r}
+lm0 <- lm(medv ~ -1 + crim ,data = Boston)
+lm1 <- lm(medv ~ crim ,data = Boston)
+{plot(medv ~ crim,data = Boston
+     ,xlab="Criminality", ylab="Median Value of owner-occupied homes in $1000's")
+abline(lm0,col ="blue")
+abline(lm1, col ="red")
+par(xpd=TRUE)
+legend(60,49,legend = c("without intercept","with intercept"),lty = c(1,1),
+       col = c("blue","red"))}
+```
+**
+Model bez interceptu nedáva zmysel (nepredpokladáme nulovú cenu nehnuteľností pri nulovej kriminalite).
+Model s interceptom je silno ovplyvnený širokým spektrom ceny nehnuteľností pri nízkej kriminalite - ak by sme tieto dáta odstránili, lineárny model by bol dobrým modelom.
+**
+**
+Pozrime sa ďalej kvantitatívne na predpoklady  lin. modelu s interceptom:
+**
+
+```{r}
+{par(mfrow=c(2,2))
+plot(lm1)}
+```
+
+**
+V grafoch residuals vs fitted vidíme, že hodnoty na okrajoch sú asymetrické. Avšak môžeme povedať, že kriminalita a cena od seba rozhodne závisia lineárne, ak si odmyslíme hodnoty s nízkou kriminalitou. Zaujímavé sú pre nás teda až oblasti s vyššou kriminalitou, kde cena klesá. Cena klesá teda aspoň o koeficient lineárneho modelu s interceptom (deriváciu), ktorý je hodnoty:
+**
+
+```{r}
+lm1$coefficients[2]
+```
+\pagebreak
+
+## Q07
+
+Vyzkoušejte model s logaritmickou transformací odezvy. Vykreslete optimální
+log-verohodnostní profil u Box-Coxovy transformace a porovnejte navrženou transformaci s provedenou logaritmickou.
+
+```{r}
+#klasicka log transformacia
+lmlog0 <- lm(log(medv) ~ -1 + crim ,data = Boston)
+lmlog1 <- lm(log(medv) ~ crim ,data = Boston)
+{plot(log(medv) ~ crim,data = Boston
+     ,xlab="Criminality", ylab="Median Value of owner-occupied homes in $1000's")
+abline(lmlog0,col ="blue")
+abline(lmlog1, col ="red")
+par(xpd=TRUE)
+legend(2.8,-1,legend = c("without intercept","with intercept"),lty = c(1,1),
+       col = c("blue","red"))}
+```
+
+```{r}
+#box-cox
+b1 = boxcox(lm(medv ~ -1 + crim ,data = Boston), lambda = seq(-2, 2, 1/10), plotit = TRUE, 
+            eps = 1/50, xlab = expression(lambda),
+            ylab = "log-Likelihood")
+lambda1 = b1$x[which(b1$y==max(b1$y))]
+lambda1
+mnew <- lm(((medv^lambda1-1)/lambda1) ~ crim, data = Boston)
+{plot(((medv^lambda1-1)/lambda1) ~ crim,data = Boston)
+abline(mnew,col ="blue")}
+
+b2 = boxcox(lm(medv ~ crim ,data = Boston), lambda = seq(-2, 2, 1/10), plotit = TRUE, 
+            eps = 1/50, xlab = expression(lambda),
+            ylab = "log-Likelihood")
+lambda2 = b2$x[which(b2$y==max(b2$y))]
+lambda2
+mnew <- lm(((medv^lambda2-1)/lambda2) ~ crim, data = Boston)
+{plot(((medv^lambda2-1)/lambda2) ~ crim,data = Boston)
+abline(mnew,col ="blue")}
+```
+**
+Vidíme, že lambda z modelu bez interceptu nemá v konfidenčnom intervale nulu, ale lambda z modelu s interceptom má. Pre model s interceptom je teda dostatočne dobrá aproximácia logaritmus.
+**
+\pagebreak
+
+## Q08
+
+Z předchozího modelu vyctěte procentuální navýšení/pokles ceny nemovitostí při změně míry kriminality o jeden stupeň (odpověd’ typu: cena nemovitosti v prumeru klesne o ???% při nárustu míry kriminality o 1 jednotku).
+
+```{r}
+beta1 <- summary(lmlog1)$coefficients[2, 1]
+criminality_decrease = (1 - exp(beta1))*100
+criminality_decrease
+```
+
+**
+Cena nehnuteľnosti v priemere klesne o 2.477689% pri náraste miery kriminality o 1 jednotku.
+**
+\pagebreak
+
+## Q09
+
+Zkuste transformovat proměnnou crim. Vyzkoušejte například po částech konstantní transformaci, lineární transformaci, splines a polynomiální transformaci(kvadratickou a kubickou). Zkuste využít informací získaných například z crPlots(model).
+
+```{r}
+library(car)
+library(rpart)
+#piecewise constant regression
+#tree <- rpart(medv ~ crim, data=Boston)
+{ x <- Boston$crim
+  y <- Boston$medv
+  df <- data.frame(x=x,y=y)
+  tree <-rpart(y~x,data=df)
+plot_tree <- function(tree, x, y) {
+  s <- seq(0, 90, by=.5)
+  plot(x, y)
+  lines(s, predict(tree, data.frame(x=s)))
+}
+plot_tree(tree, x, y)}
+
+#quadratic transformation
+polymodel=lm(Boston$medv ~ poly(Boston$crim, degree = 2, raw = TRUE))
+crPlots(polymodel)
+
+#smooth spline
+{spln = with(Boston, smooth.spline(crim, medv))
+plot(medv~crim, data=Boston)
+lines(spln, col="green")}
+
+#log transformation of crim
+mojmodel1 <- lm( medv ~ log(crim) , data = Boston)
+crPlots(mojmodel1)
+
+```
+\pagebreak
+
+## Q10
+
+Vykreslete scatterplot predikovaných cen nemovitostí na základe vybraného modelu, proložte skrze data odhadnutou regresní přímku a vykreslete efekty pomocí plot(allEffects(model)). Validujte výsledný model pomocí příslušných testu na rezidua a pomocí příslušných obrázku (QQplot,
+residua vs. fitted, atd.)
+
+**
+Použijeme model s logaritmickou transformáciou kriminality:
+**
+
+```{r}
+{plot(log(Boston$crim), Boston$medv, ylab = medlab , xlab = "Criminality")
+abline(mojmodel1, col="red")}
+```
+
+**
+Vykreslíme efekty:
+**
+
+```{r}
+library(effects)
+plot(allEffects(mojmodel1))
+```
+
+**
+Validujeme model pomocou príslušných testov, ktoré v sebe zahŕňajú funkcie summary a plot:
+**
+
+```{r}
+summary(mojmodel1)
+```
+
+**
+Kedže p hodnota je veľmi malá, vzťah medzi premennými je signifikantný. Minimum a maximum reziduí nie sú symetrické, no viac nám povie graf:
+**
+
+```{r}
+{par(mfrow=c(2,2))
+plot(mojmodel1)}
+```
+
+**
+Residuá sú symetrické až na zopár outlierov. Rozptyl je homogénny. Na poslednom grafe vidíme, že Cookova vzdialenosť sa ani nedostala do škály na grafe, t.j. nemáme dáta, ktoré keby sme vynechali, tak by zásadne ovplyvnili našu regresnú priamku.
+**
+\pagebreak
+
+## Q11
+
+Medián ceny nemovitostí je spojitá promenná, vypište tabulku četností jednotlivých hodnot. Diskutujte zdali nekteré hodnoty nejsou zpusobeny zaokrouhlením, useknutím a podobne. Měření která považujete z tohoto pohledu za neduveryhodná, případne za outliery odstraňte. 
+
+```{r}
+table(Boston$medv)
+hist(Boston$medv, breaks = 15)
+```
+
+**
+Nehnuteľnosti s hodnotou <10 boli zaokrúhlené na celé čísla. Stalo sa tak pravdepodobne pre nízky počet týchto hodnôt (vid histogram). Nízku početnosť môžme pozorovať aj pre nehnuteľnosti s hodnotou medzi 35 a 45. Nárast pre hodnotu 50 by som popisovala useknutiu dát po túto hodnotu. Odstránime preto dáta, ktoré boli zaokrúhľované inak ako zvyšok (všetko pod 10) a dáta, ktoré sa zaokruhlili na 50. 
+**
+```{r}
+boston2 <- Boston[Boston$medv != 50,]
+boston2 <- boston2[(boston2$medv >= 10),]
+hist(boston2$medv)
+```
+\pagebreak
+
+## Q12
+
+Zkonstruujte lineární model s logaritmicky transformovanou odezvou medv
+a všemi nezávislými promennými, které máte k dispozici. Na základě kritérií jako jsou AIC, BIC, R2, F, atd. Vyberte nejvhodnejší model. Ten validujte a okomentujte jeho výběr.
+
+**
+Pomocou funkcie step vyskúšame lineárne modely so všetkými vysvetlujúcimi premennými. Kedže sme nešpecifikovali smer, posledný model je ten, ktorý našiel najnižšiu hodnotu BIC resp AIC a teda je podľa tohto kritéria najlepší. Aplikujeme AIC a BIC kritérium, výstup týchto funkcií nám zároveň vypočíta R^2 a F.
+**
+
+**
+Hľadajme najlepší AIC model:
+**
+```{r}
+library(stats)
+model= lm(log(medv) ~(.), data=boston2)
+aicmodel = step(model)
+```
+
+**
+Najlepší BIC model:
+**
+```{r}
+bicmodel = step(model, criterion = "BIC", k = log(dim(boston2)[1]))
+```
+
+**
+Pozrime sa na ich F a R^2 hodnoty:
+**
+**
+AIC:
+**
+```{r}
+summary(aicmodel)
+```
+
+**
+BIC:
+**
+```{r}
+summary(bicmodel)
+```
+**
+Za najlepší považujem aicmodel s najnižšou hodnotou AIC, ktorý ma aj najnižšiu hodnotu F a vhodnú hodnotu R-squared.
+**
+\pagebreak
+
+## Q13
+
+Zkoumejte případnou multikolinearitu. Spoctěte korelace mezi jednotlivými promennými, porovnejte s vaším výběrem a pomocí VIF a dalších nástroju validujte váš výber.
+
+**
+Predchádzajúci výber odstránil premenné age, chas, indus. Ako vidíme na diagrame nižšie, chas nekoreluje so žiadnou premennou a teda nie je dôvod zaraďovať ho do nášho modelu. indus a age taktiež vykazujú vo svojich riadkoch a stĺpcoch pomerne silné zastúpenie veľkých kruhov so sýtymi farbami - silnú koreláciu - takže tiež dáva zmysel ich vyradiť.
+**
+```{r}
+library(corrplot)
+library(car)
+M<-cor(boston2)
+corrplot(M, type = "upper")
+```
+
+**
+Hodnota VIF poukazuje na to, že by bolo dobré odstrániť aj premenné rad a tax:
+**
+```{r}
+vif(aicmodel)
+finalmodel = lm(log(medv) ~ crim + zn + nox + rm + dis + ptratio + 
+    black + lstat, data=boston2)
+```
+\pagebreak
+
+## Q14
+
+Pokud ve vašem výsledném modelu máte zahrnutou kriminalitu (promennou crim) porovnejte jak se zmenil vliv kriminality na medián ceny nemovitostí. Jaké je snížení prumerné ceny nemovitostí při vzrustu kriminality o jednu jednotku? Pokud crim v modelu nemáte tak ji pro tuto otázku do
+modelu přiřad’te.
+
+**
+Pôvodná hodnota koeficientu pri crim bola -0.4151903 a teraz je -0.006326841. Cena klesá o dva rády pomalšie v porovnaní s prvým modelom.
+**
+```{r}
+summary(finalmodel)$coefficients[2, 1]
+```
+\pagebreak
+
+## Q15
+
+Prezentujte váš výsledný model pro predikci medv, diskutujte výsledné parametry
+R2 a sigma tohoto modelu. Validujte model (jak graficky, tak pomocí
+příslušných testu hypotéz).
+
+Môj výsledný model nezahŕňa premenné age, chas, indus, rad a tax. 
+```{r}
+summary(finalmodel)
+```
+
+**
+Maximá reziduí su relatívne symetrické. Premenná zn (proportion of residential land zoned for lots over 25,000 sq.ft.) má veľkú hodnotu t, ak by sme ju vvšak odstránili, zvyšným testom by to nepomohlo (step funkcia nám predsa v úlohe 12 našla najvýhodnejšiu kombináciu premenných).
+**
+
+```{r}
+{par(mfrow=c(2,2))
+plot(finalmodel)}
+```
+
+**
+Reziduá sú symetrické až na hodnoty 413, 368, 366. Tieto hodnoty figurujú aj v QQ-plote, ale nepovažujem ich za až tak signifikantné. Aj v poslednom grafe vidíme, že ani jedna hodnota nie je vzdialená o viac ako Cookovu vzdialenosť.
+**
+\pagebreak
+
+## Q16
+
+Diskutujte jak by šlo případne zlepšit predikci, jaké transformace jednotlivých promenných by mohli pomoci. Převedli byste nekteré spojité proměnné na diskrétní (na faktory)? Jaké další kroky byste při analýze navrhli?
+
+**
+Odstránila by som dáta pre kriminalitu nižšiu ako maximum z distribučnej funkcie kriminality. V oblasti s nízkou kriminalitou sa totižto prirodzene nachádzaju drahé aj lacné nehnuteľnosti (staré, nové, luxusné, schátrané), sú pre to pre našu analýzu závislosti zbytočné. 
+Ďalšie nápady nám môže ponúknuť funkcia pairs:
+**
+```{r}
+pairs(log(medv) ~ crim + zn + nox + rm + dis + ptratio + 
+    black + lstat, data=boston2)
+```
+
+**
+Bolo by vhodné vyskúšať, či by pomohla faktorizácia premenných nox a ptratio:
+**
+```{r}
+pairs(log(medv) ~  nox + ptratio, data=boston2)
+```
+\pagebreak
+
+## Q17
+
+Myslíte, že pokud bychom cílene dokázali potlačit kriminalitu v daném městě, vedlo by to ke zvýšení cen nemovitostí určených k bydlení v dané lokalite?
+
+**
+Áno. Kriminalita a cena sú od seba určite závislé. Nemyslím si však, že cenový rozdiel by bol z krátkeho časového hľadiska signifikantný, pretože je ťažké zmeniť názor verejnosti na nejakú oblasť na základe dát. 
+**
